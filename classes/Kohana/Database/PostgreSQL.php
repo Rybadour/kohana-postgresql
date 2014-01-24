@@ -343,11 +343,19 @@ class Kohana_Database_PostgreSQL extends Database
 	public function list_columns($table, $like = NULL, $add_prefix = TRUE)
 	{
 		$this->_connection OR $this->connect();
-
+		$table_name = $this->quote($add_prefix ? ($this->table_prefix().$table) : $table);
+		$sql = 'SELECT a.attname as column_name, pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type, a.attnum as ordinal_position, a.attnotnull as is_nullable'
+			.' FROM pg_catalog.pg_attribute a'
+			.' WHERE a.attnum > 0 AND NOT a.attisdropped AND a.attrelid = ('
+			.'  SELECT c.oid FROM pg_catalog.pg_class c'
+			.'	 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace'
+			.'   WHERE c.relname = '.$table_name.' AND pg_catalog.pg_table_is_visible(c.oid))';
+		/* *
 		$sql = 'SELECT column_name, column_default, is_nullable, data_type, character_maximum_length, numeric_precision, numeric_scale, datetime_precision'
 			.' FROM information_schema.columns'
 			.' WHERE table_schema = '.$this->quote($this->schema())
 			.' AND table_name = '.$this->quote($add_prefix ? ($this->table_prefix().$table) : $table);
+		/* */
 
 		if (is_string($like))
 		{
@@ -362,7 +370,8 @@ class Kohana_Database_PostgreSQL extends Database
 		{
 			$column = array_merge($this->datatype($column['data_type']), $column);
 
-			$column['is_nullable'] = ($column['is_nullable'] === 'YES');
+			//$column['is_nullable'] = ($column['is_nullable'] === 'YES');
+			$column['is_nullable'] = ($column['is_nullable'] === 'f');
 
 			$result[$column['column_name']] = $column;
 		}
